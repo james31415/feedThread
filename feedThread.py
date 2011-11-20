@@ -34,10 +34,10 @@ urls = queue.Queue(0)
 
 def fail_url(name, e):
     if hasattr(e, 'reason'):
-        print("[{0}] Failed: {1}".format(name,
+        print("[{0}] Failed (reason): {1}".format(name,
             e.reason))
     elif hasattr(e, 'code'):
-        print("[{0}] Failed: {1}".format(name,
+        print("[{0}] Failed (code): {1}".format(name,
             e.code))
 
 def get_urls():
@@ -52,7 +52,7 @@ def get_urls():
         thread_data[my_id]['url'] = feed
         try:
             rssfile = feedparser.parse(
-                    urllib2.urlopen(feed, None, global_timeout))
+                    urllib2.urlopen(urllib.quote(feed, safe="%/:=&?~#+!$,;'@()*[]"), None, global_timeout))
         except urllib2.URLError as e:
             print(feed)
             fail_url(name, e)
@@ -80,8 +80,9 @@ def get_urls():
                 if loggedfeeds[dirname] >= entrytime:
                     continue
             except KeyError:
-                loggedfeeds[dirname] = (datetime.date.today() -
-                        datetime.timedelta(weeks=1)).toordinal()
+                loggedfeeds[dirname] = max([datetime.datetime(*(ent.updated_parsed[0:6])).toordinal() for ent in rssfile.entries])-2
+                if loggedfeeds[dirname] >= entrytime:
+                    continue
 
             try:
                 enclosures = entry.enclosures
@@ -89,8 +90,7 @@ def get_urls():
                 continue
             for enclosure in enclosures:
                 try:
-                    resource = urllib2.urlopen(urllib.quote(enclosure.href, '/:'), None,
-                            global_timeout)
+                    resource = urllib2.urlopen(urllib.quote(enclosure.href, safe="%/:=&?~#+!$,;'@()*[]"), None, global_timeout)
                 except urllib2.URLError as e:
                     print(enclosure.href)
                     fail_url(my_thread.name, e)
