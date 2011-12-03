@@ -17,7 +17,6 @@ import collections
 import msvcrt
 import feedparser
 
-#podcast_directory = "D:\Owner\Music\Audio Files\Podcasts" 
 log_file = "feeds.log"
 list_file = "feeds.list"
 number_of_threads = 4
