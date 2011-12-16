@@ -105,7 +105,9 @@ def get_urls():
                 feeds.put((name, url, dirname, filename, entrytime))
         urls.task_done()
 
-    feeds.join()
+    if not want_to_quit.is_set():
+        feeds.join()
+
     can_quit.set()
 
 
@@ -123,24 +125,25 @@ def feed_thread():
         name, url, dirname, filename, entrytime = feeds.get()
         my_thread.name = "f{0}".format(name)
 
-        temptime = loggedfeeds[dirname]
+        if not want_to_quit.is_set():
+            temptime = loggedfeeds[dirname]
 
-        if not os.path.exists(os.path.join(dirname, filename)):
-            if not os.path.exists(dirname):
-                os.mkdir(dirname)
+            if not os.path.exists(os.path.join(dirname, filename)):
+                if not os.path.exists(dirname):
+                    os.mkdir(dirname)
 
-            print("[{0}] Downloading: {1}".format(my_thread.name,
-                    filename))
+                print("[{0}] Downloading: {1}".format(my_thread.name,
+                        filename))
 
-            try:
-                urllib.urlretrieve(url, filename=os.path.join(dirname, filename), reporthook=reporthook)
-            except urllib.ContentTooShortError:
-                os.remove(os.path.join(dirname, filename))
-        else:
-            print("[{0}] {1} exists.".format(my_thread.name, 
-                    filename))
+                try:
+                    urllib.urlretrieve(url, filename=os.path.join(dirname, filename), reporthook=reporthook)
+                except urllib.ContentTooShortError:
+                    os.remove(os.path.join(dirname, filename))
+            else:
+                print("[{0}] {1} exists.".format(my_thread.name, 
+                        filename))
 
-        loggedfeeds[dirname] = max(temptime, entrytime)
+            loggedfeeds[dirname] = max(temptime, entrytime)
         feeds.task_done()
         print("[{0}] Done".format(my_thread.name))
 
