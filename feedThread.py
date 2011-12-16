@@ -24,7 +24,6 @@ formats = "mp3|wma|aa|ogg|flac"
 global_timeout = 60
 
 thread_data = collections.defaultdict(dict)
-thread_finished = {}
 can_quit = threading.Event()
 want_to_quit = threading.Event()
 
@@ -105,23 +104,23 @@ def get_urls():
                     *(entry.updated_parsed[0:6]))))
                 feeds.put((name, url, dirname, filename, entrytime))
 
+    feeds.join()
+    can_quit.set()
+
+
 def feed_thread():
     my_thread = threading.current_thread()
     my_id = my_thread.ident
     thread_data[my_id]['reading'] = 0
     thread_data[my_id]['size'] = -1
-    thread_finished[my_id] = threading.Event()
 
     def reporthook(block_count, block_size, total_size):
         thread_data[my_id]['reading'] = block_count * block_size
         thread_data[my_id]['size'] = total_size
     
-    while not want_to_quit.is_set() and not (urls.empty() and feeds.empty()):
-        if feeds.empty():
-            continue
-
+    while True:
         try:
-            name, url, dirname, filename, entrytime = feeds.get(False)
+            name, url, dirname, filename, entrytime = feeds.get()
         except:
             continue
         my_thread.name = "f{0}".format(name)
@@ -146,13 +145,6 @@ def feed_thread():
         loggedfeeds[dirname] = max(temptime, entrytime)
         urls.task_done()
         print("[{0}] Done".format(my_thread.name))
-
-    thread_finished[my_id].set()
-    print("[{0}] Finished.".format(my_thread.name)) 
-
-    if False not in map(lambda x: x.is_set(), thread_finished.values()):
-        print("Really quitting.")
-        can_quit.set()
 
 def check_key():
     while True:
@@ -207,6 +199,7 @@ print("Starting threads.")
 for i in range(number_of_threads):
     t = threading.Thread(target=feed_thread)
     t.name = 'ItemGet{0}'.format(i)
+    t.daemon = True
     t.start()
 
     t = threading.Thread(target=get_urls)
