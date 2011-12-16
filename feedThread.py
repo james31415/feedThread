@@ -103,6 +103,7 @@ def get_urls():
                 print("Storing {0} for {1} ({2})".format(filename, name, datetime.datetime(
                     *(entry.updated_parsed[0:6]))))
                 feeds.put((name, url, dirname, filename, entrytime))
+        urls.task_done()
 
     feeds.join()
     can_quit.set()
@@ -119,10 +120,7 @@ def feed_thread():
         thread_data[my_id]['size'] = total_size
     
     while True:
-        try:
-            name, url, dirname, filename, entrytime = feeds.get()
-        except:
-            continue
+        name, url, dirname, filename, entrytime = feeds.get()
         my_thread.name = "f{0}".format(name)
 
         temptime = loggedfeeds[dirname]
@@ -143,7 +141,7 @@ def feed_thread():
                     filename))
 
         loggedfeeds[dirname] = max(temptime, entrytime)
-        urls.task_done()
+        feeds.task_done()
         print("[{0}] Done".format(my_thread.name))
 
 def check_key():
