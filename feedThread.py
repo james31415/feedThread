@@ -106,6 +106,7 @@ def get_urls():
         urls.task_done()
 
     if not want_to_quit.is_set():
+        urls.join()
         feeds.join()
 
     can_quit.set()
