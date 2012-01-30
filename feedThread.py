@@ -26,6 +26,7 @@ global_timeout = 60
 thread_data = collections.defaultdict(dict)
 can_quit = threading.Event()
 want_to_quit = threading.Event()
+hard_quit = threading.Event()
 
 feeds = queue.Queue(0)
 urls = queue.Queue(0)
@@ -43,7 +44,7 @@ def get_urls():
     my_id = my_thread.ident
     thread_data[my_id]['url'] = ''
 
-    while not want_to_quit.is_set() and not urls.empty():
+    while not (want_to_quit.is_set() or urls.empty() or hard_quit.is_set()):
         name, feed = urls.get()
 
         my_thread.name = "u{0}".format(name)
@@ -54,6 +55,7 @@ def get_urls():
         except urllib2.URLError as e:
             print(feed)
             fail_url(name, e)
+            urls.task_done()
             continue
 
         try:
@@ -66,7 +68,7 @@ def get_urls():
         
         print("Getting entries for {0}".format(name))
         for entry in rssfile.entries:
-            if want_to_quit.is_set():
+            if want_to_quit.is_set() or hard_quit.is_set():
                 break
             try:
                 entrytime = datetime.datetime(
@@ -92,6 +94,7 @@ def get_urls():
                 except urllib2.URLError as e:
                     print(enclosure.href)
                     fail_url(my_thread.name, e)
+                    urls.task_done()
                     continue
 
                 url = resource.geturl()
@@ -105,7 +108,7 @@ def get_urls():
                 feeds.put((name, url, dirname, filename, entrytime))
         urls.task_done()
 
-    if not want_to_quit.is_set():
+    if not (want_to_quit.is_set() or hard_quit.is_set()):
         urls.join()
         feeds.join()
 
@@ -154,11 +157,15 @@ def check_key():
         if key.lower() == b'q':
             print("Quitting early.")
             want_to_quit.set()
+        elif key.lower() == b'h':
+            print("Quitting now.")
+            hard_quit.set()
         else:
             print("{0} items in feeds".format(feeds.qsize()))
             print("{0} items in urls".format(urls.qsize()))
             print("want_to_quit: {0}".format(want_to_quit.is_set()))
             print("can_quit: {0}".format(can_quit.is_set()))
+            print("hard_quit: {0}".format(hard_quit.is_set()))
             print("feeds.empty(): {0}".format(feeds.empty()))
             print("urls.empty(): {0}".format(urls.empty()))
 
@@ -182,6 +189,9 @@ def check_key():
 
             print("\n")
 
+
+if not os.path.exists('Podcasts'):
+    os.mkdir('Podcasts')
 
 if os.path.exists(log_file):
     with open(log_file) as feedlog:
@@ -215,8 +225,9 @@ t.start()
 
 can_quit.wait()
 
-print("Cleaning up.")
+if not hard_quit.is_set():
+    print("Cleaning up.")
 
-with open(log_file, "w") as feedlog:
-    for key, value in loggedfeeds.items():
-        feedlog.write("{0},{1}\n".format(key,value))
+    with open(log_file, "w") as feedlog:
+        for key, value in loggedfeeds.items():
+            feedlog.write("{0},{1}\n".format(key,value))
