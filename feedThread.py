@@ -10,6 +10,7 @@ import datetime
 import re
 import urllib
 import urllib2
+import socket
 import Queue as queue
 import threading
 import hashlib
@@ -22,6 +23,9 @@ list_file = "feeds.list"
 number_of_threads = 4
 formats = "mp3|wma|aa|ogg|flac"
 global_timeout = 60
+socket.setdefaulttimeout(global_timeout)
+
+today = datetime.date.today().toordinal()
 
 thread_data = collections.defaultdict(dict)
 can_quit = threading.Event()
@@ -45,7 +49,7 @@ def get_urls():
     thread_data[my_id]['url'] = ''
 
     while not (want_to_quit.is_set() or urls.empty() or hard_quit.is_set()):
-        name, feed = urls.get()
+        name, feed, days_back = urls.get()
 
         my_thread.name = "u{0}".format(name)
         thread_data[my_id]['url'] = feed
@@ -83,6 +87,10 @@ def get_urls():
                 loggedfeeds[dirname] = max([datetime.datetime(*(ent.updated_parsed[0:6])).toordinal() for ent in rssfile.entries])-2
                 if loggedfeeds[dirname] >= entrytime:
                     continue
+
+            if abs(entrytime - today) > days_back:
+                loggedfeeds[dirname] = max(entrytime, loggedfeeds[dirname])
+                continue
 
             try:
                 enclosures = entry.enclosures
@@ -124,6 +132,8 @@ def feed_thread():
     def reporthook(block_count, block_size, total_size):
         thread_data[my_id]['reading'] = block_count * block_size
         thread_data[my_id]['size'] = total_size
+        if hard_quit.is_set():
+            raise urllib.ContentTooShortError
     
     while True:
         name, url, dirname, filename, entrytime = feeds.get()
@@ -139,10 +149,29 @@ def feed_thread():
                 print("[{0}] Downloading: {1}".format(my_thread.name,
                         filename))
 
-                try:
-                    urllib.urlretrieve(url, filename=os.path.join(dirname, filename), reporthook=reporthook)
-                except urllib.ContentTooShortError:
-                    os.remove(os.path.join(dirname, filename))
+                tries = 0
+                max_tries = 5
+
+                while True:
+                    try:
+                        if tries > 0:
+                            if tries <= max_tries:
+                                print("[{0}] Trying again: {1}".format(my_thread.name, filename))
+                            else:
+                                print("[{0}] Failed: {1}".format(my_thread.name, filename))
+                                break
+                        urllib.urlretrieve(url, filename=os.path.join(dirname, filename), reporthook=reporthook)
+                        break
+                    except urllib.ContentTooShortError:
+                        print("[{0}] Content too short: {1}".format(my_thread.name, filename))
+                        os.remove(os.path.join(dirname, filename))
+                        feeds.task_done()
+                        tries += 1
+                    except IOError:
+                        print("[{0}] Problem with connection: {1}".format(my_thread.name, filename))
+                        os.remove(os.path.join(dirname, filename))
+                        feeds.task_done()
+                        tries += 1
             else:
                 print("[{0}] {1} exists.".format(my_thread.name, 
                         filename))
@@ -198,13 +227,18 @@ if os.path.exists(log_file):
         loggedfeeds = {feed: int(lastdate) for feed,lastdate in
                 [lines.split(',') for lines in feedlog]}
 
+days_back = 7
 with open(list_file) as feedlist:
     for lines in feedlist:
         if lines[0] == "#":
             name = lines[2:].strip()
+            days_back = 7
+            continue
+        elif lines[0] == "!":
+            days_back = lines[1:].strip()
             continue
 
-        urls.put((name, lines.strip()))
+        urls.put((name, lines.strip(), days_back))
 
 print("Starting threads.")
 
