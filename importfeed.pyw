@@ -5,12 +5,12 @@ import urllib2
 import os
 import msvcrt
 import feedparser
+import time
 
-podcast_dir = "d:/Owner/Music/Audio Files/Podcasts/"
-feed_list = os.path.join(podcast_dir, "feeds.list")
+feed_list = "feeds.list"
 feed = sys.argv[1]
 if feed[0:4] == "feed":
-    feed = "http" + feed[4:]
+    feed = feed[5:]
 
 feed_title = feedparser.parse(urllib2.urlopen(feed)).feed.title
 

@@ -11,7 +11,8 @@ import re
 import urllib
 import urllib2
 import socket
-from multiprocessing import Manager, Process, JoinableQueue, Event, current_process
+import multiprocessing
+import Queue
 import hashlib
 import msvcrt
 import time
@@ -39,7 +40,7 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
         return("[{0}] {1}".format(thread_data['name'], thread_data['url']))
 
     thread_data = dict()
-    my_thread = current_process()
+    my_thread = multiprocessing.current_process()
     my_id = my_thread.pid
     statuses[my_id] = "[{0}]".format(my_thread.name)
     print("[{0}] Started.".format(my_id))
@@ -70,7 +71,7 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
             name = hashlib.sha224(feed.encode()).hexdigest()
 
         dirname = os.path.join("Podcasts", name)
-        
+
         print("Getting entries for {0}".format(name))
         for entry in rssfile.entries:
             if cont:
@@ -88,7 +89,7 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
                 if loggedfeeds[dirname] >= entrytime:
                     continue
             except KeyError:
-                loggedfeeds[dirname] = max([datetime.datetime(*(ent.updated_parsed[0:6])).toordinal() for ent in rssfile.entries])-2
+                loggedfeeds[dirname] = max([datetime.datetime(*(ent.updated_parsed[0:6])).toordinal() for ent in rssfile.entries if ent.updated_parsed is not None])-2
                 if loggedfeeds[dirname] >= entrytime:
                     continue
 
@@ -115,7 +116,7 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
                             url).group(1))
                 except AttributeError:
                     continue
-                print("Storing {0} for {1} ({2}, {3}, {4}, {5})".format(filename, name, entrytime, today, days_back, abs(entrytime - today) > days_back))
+                print("Storing {0} for {1}".format(filename, name))
                 feeds.put((name, url, dirname, filename, entrytime))
         urls.task_done()
 
@@ -131,7 +132,7 @@ def feed_thread(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds,
         return("[{0}] {1:.1f}% {2}/{3}".format(thread_data['name'], thread_data['reading'] / float(thread_data['size']) * 100, thread_data['reading'], thread_data['size']))
 
     thread_data = dict()
-    my_thread = current_process()
+    my_thread = multiprocessing.current_process()
     my_id = my_thread.pid
     statuses[my_id] = "[{0}]".format(my_thread.name)
     print("[{0}] Started.".format(my_id))
@@ -144,10 +145,12 @@ def feed_thread(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds,
         statuses[my_id] = update_statuses(thread_data)
         if hard_quit.is_set():
             raise urllib.ContentTooShortError
-    
+
     while True:
+        print("[{0}] Getting".format(my_thread.name))
         name, url, dirname, filename, entrytime = feeds.get()
         my_thread.name = "f{0}".format(name)
+        print("[{0}] Got".format(my_thread.name))
         thread_data['name'] = my_thread.name
         statuses[my_id] = update_statuses(thread_data)
 
@@ -191,6 +194,7 @@ def feed_thread(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds,
             loggedfeeds[dirname] = max(temptime, entrytime)
         feeds.task_done()
         print("[{0}] Done".format(my_thread.name))
+    print("[{0}] Quitting".format(my_thread.name))
 
 def check_key(statuses, can_quit, want_to_quit, hard_quit, feeds, urls):
     while True:
@@ -219,15 +223,15 @@ def check_key(statuses, can_quit, want_to_quit, hard_quit, feeds, urls):
 
 
 if __name__ == "__main__":
-    manager = Manager()
+    manager = multiprocessing.Manager()
     statuses = manager.dict()
     loggedfeeds = manager.dict()
-    can_quit = Event()
-    want_to_quit = Event()
-    hard_quit = Event()
+    can_quit = multiprocessing.Event()
+    want_to_quit = multiprocessing.Event()
+    hard_quit = multiprocessing.Event()
 
-    feeds = JoinableQueue(0)
-    urls = JoinableQueue(0)
+    feeds = multiprocessing.JoinableQueue(0)
+    urls = multiprocessing.JoinableQueue(0)
 
     if not os.path.exists('Podcasts'):
         os.mkdir('Podcasts')
@@ -253,17 +257,16 @@ if __name__ == "__main__":
     print("Starting threads.")
 
     for i in range(number_of_threads):
-        t = Process(target=feed_thread, args=(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, urls))
+        t = multiprocessing.Process(target=feed_thread, args=(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, urls))
         t.name = 'ItemGet{0}'.format(i)
         t.daemon = True
         t.start()
 
-        t = Process(target=get_urls, args=(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, urls))
+        t = multiprocessing.Process(target=get_urls, args=(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, urls))
         t.name = 'GetUrls{0}'.format(i)
-        t.daemon = True
         t.start()
 
-    t = Process(target=check_key, args=(statuses, can_quit, want_to_quit, hard_quit, feeds, urls))
+    t = multiprocessing.Process(target=check_key, args=(statuses, can_quit, want_to_quit, hard_quit, feeds, urls))
     t.name = 'Input'
     t.start()
 
