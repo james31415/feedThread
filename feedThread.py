@@ -8,11 +8,10 @@ Created on Fri Jun 04 17:37:05 2010
 import os
 import datetime
 import re
-import urllib
-import urllib2
+import urllib.request, urllib.parse, urllib.error
 import socket
 import multiprocessing
-import Queue
+import queue
 import hashlib
 import msvcrt
 import time
@@ -29,11 +28,11 @@ today = datetime.date.today().toordinal()
 
 def fail_url(name, e):
     if hasattr(e, 'reason'):
-        print("[{0}] Failed (reason): {1}".format(name,
-            e.reason))
+        print(("[{0}] Failed (reason): {1}".format(name,
+            e.reason)))
     elif hasattr(e, 'code'):
-        print("[{0}] Failed (code): {1}".format(name,
-            e.code))
+        print(("[{0}] Failed (code): {1}".format(name,
+            e.code)))
 
 def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, urls):
     def update_statuses(thread_data):
@@ -43,7 +42,7 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
     my_thread = multiprocessing.current_process()
     my_id = my_thread.pid
     statuses[my_id] = "[{0}]".format(my_thread.name)
-    print("[{0}] Started.".format(my_id))
+    print(("[{0}] Started.".format(my_id)))
     thread_data['url'] = ''
 
     while not (want_to_quit.is_set() or urls.empty() or hard_quit.is_set()):
@@ -57,8 +56,8 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
         statuses[my_id] = update_statuses(thread_data)
         try:
             rssfile = feedparser.parse(
-                    urllib2.urlopen(urllib.quote(feed, safe="%/:=&?~#+!$,;'@()*[]"), None, global_timeout))
-        except urllib2.URLError as e:
+                    urllib.request.urlopen(urllib.parse.quote(feed, safe="%/:=&?~#+!$,;'@()*[]"), None, global_timeout))
+        except urllib.error.URLError as e:
             print(feed)
             fail_url(name, e)
             urls.task_done()
@@ -72,7 +71,7 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
 
         dirname = os.path.join("Podcasts", name)
 
-        print("Getting entries for {0}".format(name))
+        print(("Getting entries for {0}".format(name)))
         for entry in rssfile.entries:
             if cont:
                 break
@@ -103,20 +102,20 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
                 continue
             for enclosure in enclosures:
                 try:
-                    resource = urllib2.urlopen(urllib.quote(enclosure.href, safe="%/:=&?~#+!$,;'@()*[]"), None, global_timeout)
-                except urllib2.URLError as e:
-                    print(enclosure.href)
+                    resource = urllib.request.urlopen(urllib.parse.quote(enclosure.href, safe="%/:=&?~#+!$,;'@()*[]"), None, global_timeout)
+                except urllib.error.URLError as e:
+                    print((enclosure.href))
                     fail_url(my_thread.name, e)
                     cont = True
                     break
 
                 url = resource.geturl()
                 try:
-                    filename = urllib.unquote(re.search('.*/([^/]*\.(?:'+formats+'))',
+                    filename = urllib.parse.unquote(re.search('.*/([^/]*\.(?:'+formats+'))',
                             url).group(1))
                 except AttributeError:
                     continue
-                print("Storing {0} for {1}".format(filename, name))
+                print(("Storing {0} for {1}".format(filename, name)))
                 feeds.put((name, url, dirname, filename, entrytime))
         urls.task_done()
 
@@ -135,7 +134,7 @@ def feed_thread(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds,
     my_thread = multiprocessing.current_process()
     my_id = my_thread.pid
     statuses[my_id] = "[{0}]".format(my_thread.name)
-    print("[{0}] Started.".format(my_id))
+    print(("[{0}] Started.".format(my_id)))
     thread_data['reading'] = 0
     thread_data['size'] = -1
 
@@ -144,13 +143,13 @@ def feed_thread(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds,
         thread_data['size'] = total_size
         statuses[my_id] = update_statuses(thread_data)
         if hard_quit.is_set():
-            raise urllib.ContentTooShortError
+            raise urllib.error.ContentTooShortError
 
     while True:
-        print("[{0}] Getting".format(my_thread.name))
+        print(("[{0}] Getting".format(my_thread.name)))
         name, url, dirname, filename, entrytime = feeds.get()
         my_thread.name = "f{0}".format(name)
-        print("[{0}] Got".format(my_thread.name))
+        print(("[{0}] Got".format(my_thread.name)))
         thread_data['name'] = my_thread.name
         statuses[my_id] = update_statuses(thread_data)
 
@@ -161,8 +160,8 @@ def feed_thread(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds,
                 if not os.path.exists(dirname):
                     os.mkdir(dirname)
 
-                print("[{0}] Downloading: {1}".format(my_thread.name,
-                        filename))
+                print(("[{0}] Downloading: {1}".format(my_thread.name,
+                        filename)))
 
                 tries = 0
                 max_tries = 5
@@ -171,30 +170,30 @@ def feed_thread(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds,
                     try:
                         if tries > 0:
                             if tries <= max_tries:
-                                print("[{0}] Trying again: {1}".format(my_thread.name, filename))
+                                print(("[{0}] Trying again: {1}".format(my_thread.name, filename)))
                             else:
-                                print("[{0}] Failed: {1}".format(my_thread.name, filename))
+                                print(("[{0}] Failed: {1}".format(my_thread.name, filename)))
                                 break
-                        urllib.urlretrieve(url, filename=os.path.join(dirname, filename), reporthook=reporthook)
+                        urllib.request.urlretrieve(url, filename=os.path.join(dirname, filename), reporthook=reporthook)
                         break
-                    except urllib.ContentTooShortError:
-                        print("[{0}] Content too short: {1}".format(my_thread.name, filename))
+                    except urllib.error.ContentTooShortError:
+                        print(("[{0}] Content too short: {1}".format(my_thread.name, filename)))
                         os.remove(os.path.join(dirname, filename))
                         feeds.task_done()
                         tries += 1
                     except IOError:
-                        print("[{0}] Problem with connection: {1}".format(my_thread.name, filename))
+                        print(("[{0}] Problem with connection: {1}".format(my_thread.name, filename)))
                         os.remove(os.path.join(dirname, filename))
                         feeds.task_done()
                         tries += 1
             else:
-                print("[{0}] {1} exists.".format(my_thread.name, 
-                        filename))
+                print(("[{0}] {1} exists.".format(my_thread.name,
+                        filename)))
 
             loggedfeeds[dirname] = max(temptime, entrytime)
         feeds.task_done()
-        print("[{0}] Done".format(my_thread.name))
-    print("[{0}] Quitting".format(my_thread.name))
+        print(("[{0}] Done".format(my_thread.name)))
+    print(("[{0}] Quitting".format(my_thread.name)))
 
 def check_key(statuses, can_quit, want_to_quit, hard_quit, feeds, urls):
     while True:
@@ -208,14 +207,14 @@ def check_key(statuses, can_quit, want_to_quit, hard_quit, feeds, urls):
                 hard_quit.set()
                 can_quit.set()
             else:
-                print("{0} items in feeds".format(feeds.qsize()))
-                print("{0} items in urls".format(urls.qsize()))
-                print("want_to_quit: {0}".format(want_to_quit.is_set()))
-                print("can_quit: {0}".format(can_quit.is_set()))
-                print("hard_quit: {0}".format(hard_quit.is_set()))
-                print("{0} active threads:".format(len(statuses)))
-                for status in statuses.values():
-                    print("{0}".format(status))
+                print(("{0} items in feeds".format(feeds.qsize())))
+                print(("{0} items in urls".format(urls.qsize())))
+                print(("want_to_quit: {0}".format(want_to_quit.is_set())))
+                print(("can_quit: {0}".format(can_quit.is_set())))
+                print(("hard_quit: {0}".format(hard_quit.is_set())))
+                print(("{0} active threads:".format(len(statuses))))
+                for status in list(statuses.values()):
+                    print(("{0}".format(status)))
 
                 print("\n")
         if can_quit.is_set():
@@ -276,5 +275,5 @@ if __name__ == "__main__":
         print("Cleaning up.")
 
         with open(log_file, "w") as feedlog:
-            for key, value in loggedfeeds.items():
+            for key, value in list(loggedfeeds.items()):
                 feedlog.write("{0},{1}\n".format(key,value))
