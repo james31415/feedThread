@@ -5,6 +5,7 @@ import urllib2
 import os
 import msvcrt
 import feedparser
+import re
 import time
 
 feed_list = "feeds.list"
@@ -12,7 +13,10 @@ feed = sys.argv[1]
 if feed[0:4] == "feed":
     feed = feed[5:]
 
-feed_title = feedparser.parse(urllib2.urlopen(feed)).feed.title
+def cleanTitle(dirty_title):
+    return re.sub("[^\w-]", " ", dirty_title).strip()
+
+feed_title = cleanTitle(feedparser.parse(urllib2.urlopen(feed)).feed.title)
 
 list_of_feeds = collections.defaultdict(list)
 this_feed_title = ""

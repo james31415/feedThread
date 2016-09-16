@@ -62,10 +62,15 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
             fail_url(name, e)
             urls.task_done()
             continue
+        except socket.timeout as e:
+            print(feed)
+            fail_url(name, e)
+            urls.task_done()
+            continue
 
         try:
             tname = rssfile['feed'].get('title') or name
-            name = re.sub("[^\w-]"," ", tname).rstrip()
+            name = re.sub("[^\w-]"," ", tname).strip()
         except KeyError:
             name = hashlib.sha224(feed.encode()).hexdigest()
 
@@ -104,6 +109,11 @@ def get_urls(statuses, loggedfeeds, can_quit, want_to_quit, hard_quit, feeds, ur
                 try:
                     resource = urllib.request.urlopen(urllib.parse.quote(enclosure.href, safe="%/:=&?~#+!$,;'@()*[]"), None, global_timeout)
                 except urllib.error.URLError as e:
+                    print((enclosure.href))
+                    fail_url(my_thread.name, e)
+                    cont = True
+                    break
+                except socket.timeout as e:
                     print((enclosure.href))
                     fail_url(my_thread.name, e)
                     cont = True

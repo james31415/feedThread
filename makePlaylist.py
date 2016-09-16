@@ -5,7 +5,7 @@ def getPodcastOrder():
     playlistOrder = []
     with open("playlistOrder.list") as inFile:
         for title in inFile.readlines():
-            cleanTitle = re.sub("[^\w-]", " ", title).rstrip()
+            cleanTitle = re.sub("[^\w-]", " ", title).strip()
             playlistOrder.append(cleanTitle)
 
     return playlistOrder
