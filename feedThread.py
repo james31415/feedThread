@@ -19,8 +19,9 @@ today = datetime.date.today().toordinal()
 def download_url(url, dirname):
     r = requests.get(url, stream=True, headers = HEADERS)
     try:
-        total_size = int(r.headers['Content-Size'])
+        total_size = int(r.headers['Content-Length'])
     except KeyError:
+        print(r.headers)
         total_size = 0
 
     filename = os.path.join(dirname, urllib.parse.unquote(re.search('.*/([^/]*\.(?:'+FORMATS+'))', r.url).group(1)))
