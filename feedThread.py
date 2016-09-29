@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import datetime
+from datetime import datetime, timedelta
 import hashlib
 import os
 import re
@@ -14,7 +14,7 @@ FORMATS = 'mp3|wma|aa|ogg|flac'
 USER_AGENT = 'FeedThread/1.0 (https://github.com/james31415/feedthread)'
 HEADERS = {'User-Agent': USER_AGENT}
 
-today = datetime.date.today().toordinal()
+today = datetime.now()
 
 def download_url(url, dirname):
     r = requests.get(url, stream=True, headers = HEADERS)
@@ -54,8 +54,8 @@ if __name__ == '__main__':
 
     if os.path.exists(LOG_FILE):
         with open(LOG_FILE) as feedlog:
-            loggedfeeds.update({feed: int(lastdate) for feed, lastdate in
-                [lines.split(',') for lines in feedlog]})
+            loggedfeeds.update({feed: datetime.strptime(lastdate, "%Y-%m-%dT%H:%M:%S") for feed, lastdate in
+                [lines.strip().split(',') for lines in feedlog]})
 
     days_back = 7
     with open(LIST_FILE) as feedlist:
@@ -90,8 +90,7 @@ if __name__ == '__main__':
         print('Getting entries for {}'.format(name))
         for entry in rssfile.entries:
             try:
-                entrytime = datetime.datetime(
-                        *(entry.updated_parsed[0:6])).toordinal()
+                entrytime = datetime(*(entry.updated_parsed[0:6]))
             except:
                 print('Could not parse date for {}'.format(name))
                 continue
@@ -100,11 +99,11 @@ if __name__ == '__main__':
                 if loggedfeeds[dirname] >= entrytime:
                     continue
             except KeyError:
-                loggedfeeds[dirname] = max([datetime.datetime(*(ent.updated_parsed[0:6])).toordinal() for ent in rssfile.entries if ent.updated_parsed is not None])-2
+                loggedfeeds[dirname] = max([datetime(*(ent.updated_parsed[0:6])) for ent in rssfile.entries if ent.updated_parsed is not None])-2
                 if loggedfeeds[dirname] >= entrytime:
                     continue
 
-            if abs(entrytime - today) > days_back:
+            if abs(entrytime - today) > timedelta(days=days_back):
                 loggedfeeds[dirname] = max(entrytime, loggedfeeds[dirname])
                 continue
 
@@ -128,4 +127,4 @@ if __name__ == '__main__':
 
     with open(LOG_FILE, 'w') as feedlog:
         for key, value in list(loggedfeeds.items()):
-            feedlog.write("{0},{1}\n".format(key,value))
+            feedlog.write("{0},{1}\n".format(key,value.isoformat()))
