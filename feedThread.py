@@ -1,3 +1,4 @@
+# /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from datetime import datetime, timedelta
@@ -5,6 +6,7 @@ import hashlib
 import os
 import re
 import urllib.parse
+import sys
 
 import feedparser
 import requests
@@ -14,10 +16,15 @@ FORMATS = 'mp3|wma|aa|ogg|flac'
 USER_AGENT = 'FeedThread/1.0 (https://github.com/james31415/feedthread)'
 HEADERS = {'User-Agent': USER_AGENT}
 
-today = datetime.now()
+todaysDate = datetime.now()
 
 def download_url(url, dirname):
-    r = requests.get(url, stream=True, headers = HEADERS)
+    try:
+        r = requests.get(url, stream=True, headers = HEADERS)
+    except:
+        print("Unexpected error:", sys.exc_info()[0])
+        return False
+
     try:
         total_size = int(r.headers['Content-Length'])
     except KeyError:
@@ -39,6 +46,8 @@ def download_url(url, dirname):
         print('Downloaded {}'.format(filename))
     else:
         print("{} exists".format(filename))
+
+    return True
 
 if __name__ == '__main__':
     LOG_FILE = 'feeds.log'
@@ -71,7 +80,10 @@ if __name__ == '__main__':
             feeds.append((name, lines.strip(), days_back))
 
     for name, feed, days_back in feeds:
-        r = requests.get(feed, headers = HEADERS)
+        try:
+            r = requests.get(feed, headers = HEADERS)
+        except requests.ConnectionError as e:
+            print("Feed {} failed: {}".format(name, e.response))
 
         if r.status_code != requests.codes.ok:
             print('{} failed with {} code'.format(name, r.status_code))
@@ -99,11 +111,11 @@ if __name__ == '__main__':
                 if loggedfeeds[dirname] >= entrytime:
                     continue
             except KeyError:
-                loggedfeeds[dirname] = max([datetime(*(ent.updated_parsed[0:6])) for ent in rssfile.entries if ent.updated_parsed is not None])-2
+                loggedfeeds[dirname] = max([datetime(*(ent.updated_parsed[0:6])) for ent in rssfile.entries if ent.updated_parsed is not None])-timedelta(days=2)
                 if loggedfeeds[dirname] >= entrytime:
                     continue
 
-            if abs(entrytime - today) > timedelta(days=days_back):
+            if abs(entrytime - todaysDate) > timedelta(days=days_back):
                 loggedfeeds[dirname] = max(entrytime, loggedfeeds[dirname])
                 continue
 
@@ -119,9 +131,8 @@ if __name__ == '__main__':
                 casts.append((enclosure.href, dirname, entrytime))
 
     for url, dirname, entrytime in casts:
-        download_url(url, dirname)
-
-        loggedfeeds[dirname] = max(loggedfeeds[dirname], entrytime)
+        if download_url(url, dirname):
+            loggedfeeds[dirname] = max(loggedfeeds[dirname], entrytime)
 
     print('Cleaning up.')
 

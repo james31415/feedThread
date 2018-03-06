@@ -1,2 +1,5 @@
 Podcasts/*
 *.pyc
+feeds.list
+feeds.log
+playlistOrder.list
