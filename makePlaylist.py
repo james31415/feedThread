@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import re
 import os
 
@@ -14,7 +15,7 @@ def getPlaylist(podcastDir, podcastOrder):
     playlistFiles = []
     for title in podcastOrder:
         for (dirpath, dirnames, filenames) in os.walk(os.path.join(podcastDir, title)):
-            for f in filenames:
+            for f in sorted(filenames):
                 playlistFiles.append(os.path.join(title, f))
     return playlistFiles
 
