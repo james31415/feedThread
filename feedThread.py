@@ -31,7 +31,12 @@ def download_url(url, dirname):
         print(r.headers)
         total_size = 0
 
-    filename = os.path.join(dirname, urllib.parse.unquote(re.search('.*/([^/]*\.(?:'+FORMATS+'))', r.url).group(1)))
+    try:
+        filename = os.path.join(dirname, urllib.parse.unquote(re.search('.*/([^/]*\.(?:'+FORMATS+'))', url).group(1)))
+    except AttributeError:
+        print("Couldn't find {} in {}. Is the feed valid?".format(FORMATS, url))
+        return False
+
     if not os.path.exists(filename):
         print('Downloading {} from {}'.format(filename, url))
 
