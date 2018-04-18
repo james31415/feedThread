@@ -3,7 +3,6 @@ import sys
 import collections
 import urllib.request
 import os
-import msvcrt
 import feedparser
 import re
 import time
