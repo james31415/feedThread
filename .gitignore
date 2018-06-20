@@ -1,6 +1,5 @@
 Podcasts/*
 *.pyc
-feeds.list
-feeds.log
+feeds.conf
 playlistOrder.list
 venv

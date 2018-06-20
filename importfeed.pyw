@@ -7,31 +7,29 @@ import feedparser
 import re
 import time
 
-feed_list = "feeds.list"
-feed = sys.argv[1]
-if feed[0:4] == "feed":
-    feed = feed[5:]
+import yaml
+
+feed_conf = "feeds.conf"
+feed_url = sys.argv[1]
+if feed_url[0:4] == "feed":
+    feed_url = feed_url[5:]
 
 def cleanTitle(dirty_title):
     return re.sub("[^\w-]", " ", dirty_title).strip()
 
-feed_title = cleanTitle(feedparser.parse(urllib.request.urlopen(feed)).feed.title)
+feed_title = cleanTitle(feedparser.parse(urllib.request.urlopen(feed_url)).feed.title)
 
-list_of_feeds = collections.defaultdict(list)
-this_feed_title = ""
+Present = False
+list_of_feeds = yaml.load(open(feed_conf, "r"))
+for feed in list_of_feeds:
+    if feed["Feed"]["URL"] == feed_url:
+        Present = True
 
-with open(feed_list) as fl:
-    for line in fl:
-        if line[0] == '#':
-            this_feed_title = line[2:].strip()
-        else:
-            list_of_feeds[this_feed_title].append(line.strip())
+print(list_of_feeds)
 
-if feed not in list_of_feeds[feed_title]:
-    list_of_feeds[feed_title].append(feed)
+if not Present:
+    list_of_feeds.append({"Feed": { "Name": feed_title, "URL": feed_url } })
 
-with open(feed_list, "w") as fl:
-    for a in sorted(list_of_feeds.keys()):
-        print("# {0}".format(a), file=fl)
-        for b in sorted(list_of_feeds[a]):
-            print("{0}".format(b), file=fl)
+print(list_of_feeds)
+
+yaml.dump(list_of_feeds, open(feed_conf, "w"), default_flow_style=False)

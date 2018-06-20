@@ -10,6 +10,7 @@ import sys
 
 import feedparser
 import requests
+import yaml
 
 CHUNK_SIZE = 1024 * 1024
 FORMATS = 'mp3|wma|aa|ogg|flac'
@@ -55,38 +56,26 @@ def download_url(url, dirname):
     return True
 
 if __name__ == '__main__':
-    LOG_FILE = 'feeds.log'
-    LIST_FILE = 'feeds.list'
+    CONF_FILE = 'feeds.conf'
     PODCAST_DIRECTORY = 'Podcasts'
 
-    loggedfeeds = {}
     feeds = []
     casts = []
 
     if not os.path.exists(PODCAST_DIRECTORY):
         os.mkdir(PODCAST_DIRECTORY)
 
-    if os.path.exists(LOG_FILE):
-        with open(LOG_FILE) as feedlog:
-            loggedfeeds.update({feed: datetime.strptime(lastdate, "%Y-%m-%dT%H:%M:%S") for feed, lastdate in
-                [lines.strip().split(',') for lines in feedlog]})
+    if os.path.exists(CONF_FILE):
+        with open(CONF_FILE) as confFile:
+            feeds = yaml.load(confFile)
 
-    days_back = 7
-    with open(LIST_FILE) as feedlist:
-        for lines in feedlist:
-            if lines[0] == '#':
-                name = lines[2:].strip()
-                days_back = 7
-                continue
-            elif lines[0] == "!":
-                days_back = int(lines[1:].strip())
-                continue
+    for index, feed in enumerate(feeds):
+        name = feed["Feed"]["Name"]
+        url = feed["Feed"]["URL"]
+        days_back = feed["Feed"].get("Days", 7)
 
-            feeds.append((name, lines.strip(), days_back))
-
-    for name, feed, days_back in feeds:
         try:
-            r = requests.get(feed, headers = HEADERS)
+            r = requests.get(url, headers = HEADERS)
         except requests.ConnectionError as e:
             print("Feed {} failed: {}".format(name, e.response))
 
@@ -100,7 +89,7 @@ if __name__ == '__main__':
             tname = rssfile['feed'].get('title') or name
             name = re.sub('[^\w-]', ' ', tname).strip()
         except KeyError:
-            name = hashlib.sha224(feed.encode()).hexdigest()
+            name = hashlib.sha224(url.encode()).hexdigest()
 
         dirname = os.path.join(PODCAST_DIRECTORY, name)
 
@@ -112,16 +101,17 @@ if __name__ == '__main__':
                 print('Could not parse date for {}'.format(name))
                 continue
 
-            try:
-                if loggedfeeds[dirname] >= entrytime:
+            if feed["Feed"].get("Date"):
+                if feed["Feed"]["Date"] >= entrytime:
                     continue
-            except KeyError:
-                loggedfeeds[dirname] = max([datetime(*(ent.updated_parsed[0:6])) for ent in rssfile.entries if ent.updated_parsed is not None])-timedelta(days=2)
-                if loggedfeeds[dirname] >= entrytime:
+            else:
+                feed["Feed"]["Date"] = max([datetime(*(ent.updated_parsed[0:6])) for ent in rssfile.entries if ent.updated_parsed is not None])-timedelta(days=2)
+
+                if feed["Feed"]["Date"] >= entrytime:
                     continue
 
             if abs(entrytime - todaysDate) > timedelta(days=days_back):
-                loggedfeeds[dirname] = max(entrytime, loggedfeeds[dirname])
+                feed["Feed"]["Date"] = max(entrytime, feed["Feed"]["Date"])
                 continue
 
             try:
@@ -133,14 +123,13 @@ if __name__ == '__main__':
                 if not os.path.exists(dirname):
                     os.mkdir(dirname)
 
-                casts.append((enclosure.href, dirname, entrytime))
+                casts.append((index, enclosure.href, dirname, entrytime))
 
-    for url, dirname, entrytime in casts:
+    for index, url, dirname, entrytime in casts:
         if download_url(url, dirname):
-            loggedfeeds[dirname] = max(loggedfeeds[dirname], entrytime)
+            feeds[index]["Feed"]["Date"] = max(feeds[index]["Feed"]["Date"], entrytime)
 
     print('Cleaning up.')
 
-    with open(LOG_FILE, 'w') as feedlog:
-        for key, value in list(loggedfeeds.items()):
-            feedlog.write("{0},{1}\n".format(key,value.isoformat()))
+    with open(CONF_FILE, 'w') as confFile:
+        yaml.dump(feeds, confFile, default_flow_style=False)
