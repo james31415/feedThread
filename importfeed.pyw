@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 import collections
 import urllib.request
@@ -25,11 +24,7 @@ for feed in list_of_feeds:
     if feed["Feed"]["URL"] == feed_url:
         Present = True
 
-print(list_of_feeds)
-
 if not Present:
     list_of_feeds.append({"Feed": { "Name": feed_title, "URL": feed_url } })
-
-print(list_of_feeds)
 
 yaml.dump(list_of_feeds, open(feed_conf, "w"), default_flow_style=False)
