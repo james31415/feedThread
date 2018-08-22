@@ -36,22 +36,25 @@ def download_url(url, dirname):
         filename = os.path.join(dirname, urllib.parse.unquote(re.search('.*/([^/]*\.(?:'+FORMATS+'))', url).group(1)))
     except AttributeError:
         print("Couldn't find {} in {}. Is the feed valid?".format(FORMATS, url))
+        r.close()
         return False
 
-    if not os.path.exists(filename):
-        print('Downloading {} from {}'.format(filename, url))
-
-        downloaded_size = 0
-        with open(filename, 'wb') as fd:
-            for chunk in r.iter_content(CHUNK_SIZE):
-                downloaded_size += fd.write(chunk)
-
-                if total_size > 0:
-                    print("{:6.2f}%".format((downloaded_size / total_size) * 100), end='\r')
-
-        print('Downloaded {}'.format(filename))
-    else:
+    if os.path.exists(filename):
         print("{} exists".format(filename))
+        r.close()
+        return True
+
+    print('Downloading {} from {}'.format(filename, url))
+
+    downloaded_size = 0
+    with open(filename, 'wb') as fd:
+        for chunk in r.iter_content(CHUNK_SIZE):
+            downloaded_size += fd.write(chunk)
+
+            if total_size > 0:
+                print("{:6.2f}%".format((downloaded_size / total_size) * 100), end='\r')
+
+    print('Downloaded {}'.format(filename))
 
     return True
 
@@ -78,6 +81,7 @@ if __name__ == '__main__':
             r = requests.get(url, headers = HEADERS)
         except requests.ConnectionError as e:
             print("Feed {} failed: {}".format(name, e.response))
+            continue
 
         if r.status_code != requests.codes.ok:
             print('{} failed with {} code'.format(name, r.status_code))
