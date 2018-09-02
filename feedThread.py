@@ -89,7 +89,7 @@ if __name__ == '__main__':
         with open(CONF_FILE) as confFile:
             feeds = yaml.load(confFile)
 
-    for index, feed in enumerate(feeds):
+    for index, feed in enumerate(feeds["Feeds"]):
         name = feed["Feed"]["Name"]
         url = feed["Feed"]["URL"]
         fetch_style = feed["Feed"].get("FetchStyle", FetchStyle.Latest)

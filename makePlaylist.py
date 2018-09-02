@@ -2,14 +2,16 @@
 import re
 import os
 
+import yaml
+
+CONF_FILE = 'feeds.conf'
+
 def getPodcastOrder():
     playlistOrder = []
-    with open("playlistOrder.list") as inFile:
-        for title in inFile.readlines():
-            cleanTitle = re.sub("[^\w-]", " ", title).strip()
-            playlistOrder.append(cleanTitle)
+    with open(CONF_FILE) as inFile:
+        playlistOrder = yaml.load(inFile)
 
-    return playlistOrder
+    return playlistOrder["Playlist"]
 
 def getPlaylist(podcastDir, podcastOrder):
     playlistFiles = []
