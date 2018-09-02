@@ -145,7 +145,7 @@ if __name__ == '__main__':
 
     for index, url, dirname, entrytime in casts:
         if download_url(url, dirname):
-            feeds[index]["Feed"]["Date"] = max(feeds[index]["Feed"]["Date"], entrytime)
+            feeds["Feeds"][index]["Feed"]["Date"] = max(feeds["Feeds"][index]["Feed"]["Date"], entrytime)
 
     print('Cleaning up.')
 
