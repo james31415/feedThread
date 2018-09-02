@@ -7,10 +7,15 @@ import os
 import re
 import urllib.parse
 import sys
+from enum import Enum
 
 import feedparser
 import requests
 import yaml
+
+class FetchStyle(Enum):
+    Latest = 1
+    InOrder = 2
 
 CHUNK_SIZE = 1024 * 1024
 FORMATS = 'mp3|wma|aa|ogg|flac'
@@ -18,6 +23,18 @@ USER_AGENT = 'FeedThread/1.0 (https://github.com/james31415/feedthread)'
 HEADERS = {'User-Agent': USER_AGENT}
 
 todaysDate = datetime.now()
+
+def first_date(entries, order = FetchStyle.Latest):
+    if order == FetchStyle.Latest:
+        return max([datetime(*(ent.updated_parsed[0:6])) for ent in entries if ent.updated_parsed is not None])
+    else:
+        return min([datetime(*(ent.updated_parsed[0:6])) for ent in entries if ent.updated_parsed is not None])
+
+def get_entrytime(entry):
+    try:
+        return datetime(*(entry.updated_parsed[0:6]))
+    except:
+        return None
 
 def download_url(url, dirname):
     try:
@@ -75,7 +92,8 @@ if __name__ == '__main__':
     for index, feed in enumerate(feeds):
         name = feed["Feed"]["Name"]
         url = feed["Feed"]["URL"]
-        days_back = feed["Feed"].get("Days", 7)
+        fetch_style = feed["Feed"].get("FetchStyle", FetchStyle.Latest)
+        number_to_save = feed["Feed"].get("NumberToSave", 2)
 
         try:
             r = requests.get(url, headers = HEADERS)
@@ -96,37 +114,33 @@ if __name__ == '__main__':
             name = hashlib.sha224(url.encode()).hexdigest()
 
         dirname = os.path.join(PODCAST_DIRECTORY, name)
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+
+        number_existing = len(os.listdir(dirname))
+        number_remaining = number_to_save - number_existing
+
+        if number_remaining <= 0:
+            continue
+
+        if feed["Feed"].get("Date") is None:
+            feed["Feed"]["Date"] = first_date(rssfile.entries, fetch_style)-timedelta(days=2)
 
         print('Getting entries for {}'.format(name))
-        for entry in rssfile.entries:
-            try:
-                entrytime = datetime(*(entry.updated_parsed[0:6]))
-            except:
-                print('Could not parse date for {}'.format(name))
-                continue
+        entries = filter(get_entrytime, rssfile.entries)
+        entries = sorted(entries, key = lambda x: get_entrytime(x))
+        entries = list(filter(lambda x: get_entrytime(x) > feed["Feed"]["Date"], entries))
+        entries_to_get = entries[:number_remaining]
 
-            if feed["Feed"].get("Date"):
-                if feed["Feed"]["Date"] >= entrytime:
-                    continue
-            else:
-                feed["Feed"]["Date"] = max([datetime(*(ent.updated_parsed[0:6])) for ent in rssfile.entries if ent.updated_parsed is not None])-timedelta(days=2)
-
-                if feed["Feed"]["Date"] >= entrytime:
-                    continue
-
-            if abs(entrytime - todaysDate) > timedelta(days=days_back):
-                feed["Feed"]["Date"] = max(entrytime, feed["Feed"]["Date"])
-                continue
-
+        for entry in entries_to_get:
             try:
                 enclosures = entry.enclosures
             except AttributeError:
                 continue
 
-            for enclosure in enclosures:
-                if not os.path.exists(dirname):
-                    os.mkdir(dirname)
+            entrytime = get_entrytime(entry)
 
+            for enclosure in enclosures:
                 casts.append((index, enclosure.href, dirname, entrytime))
 
     for index, url, dirname, entrytime in casts:
