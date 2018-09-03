@@ -90,10 +90,10 @@ if __name__ == '__main__':
             feeds = yaml.load(confFile)
 
     for index, feed in enumerate(feeds["Feeds"]):
-        name = feed["Feed"]["Name"]
-        url = feed["Feed"]["URL"]
-        fetch_style = feed["Feed"].get("FetchStyle", FetchStyle.Latest)
-        number_to_save = feed["Feed"].get("NumberToSave", 2)
+        name = feed["Name"]
+        url = feed["URL"]
+        fetch_style = feed.get("FetchStyle", FetchStyle.Latest)
+        number_to_save = feed.get("NumberToSave", 2)
 
         try:
             r = requests.get(url, headers = HEADERS)
@@ -123,13 +123,13 @@ if __name__ == '__main__':
         if number_remaining <= 0:
             continue
 
-        if feed["Feed"].get("Date") is None:
-            feed["Feed"]["Date"] = first_date(rssfile.entries, fetch_style)-timedelta(days=2)
+        if feed.get("Date") is None:
+            feed["Date"] = first_date(rssfile.entries, fetch_style)-timedelta(days=2)
 
         print('Getting entries for {}'.format(name))
         entries = filter(get_entrytime, rssfile.entries)
         entries = sorted(entries, key = lambda x: get_entrytime(x))
-        entries = list(filter(lambda x: get_entrytime(x) > feed["Feed"]["Date"], entries))
+        entries = list(filter(lambda x: get_entrytime(x) > feed["Date"], entries))
         entries_to_get = entries[:number_remaining]
 
         for entry in entries_to_get:
@@ -145,7 +145,7 @@ if __name__ == '__main__':
 
     for index, url, dirname, entrytime in casts:
         if download_url(url, dirname):
-            feeds["Feeds"][index]["Feed"]["Date"] = max(feeds["Feeds"][index]["Feed"]["Date"], entrytime)
+            feeds["Feeds"][index]["Date"] = max(feeds["Feeds"][index]["Date"], entrytime)
 
     print('Cleaning up.')
 

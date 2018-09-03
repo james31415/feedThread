@@ -21,11 +21,11 @@ feed_title = cleanTitle(feedparser.parse(urllib.request.urlopen(feed_url)).feed.
 Present = False
 list_of_feeds = yaml.load(open(feed_conf, "r"))
 for feed in list_of_feeds["Feeds"]:
-    if feed["Feed"]["URL"] == feed_url:
+    if feed["URL"] == feed_url:
         Present = True
 
 if not Present:
-    list_of_feeds["Feeds"].append({"Feed": { "Name": feed_title, "URL": feed_url } })
+    list_of_feeds["Feeds"].append({ "Name": feed_title, "URL": feed_url })
     list_of_feeds["Playlist"].append(feed_title)
 
 yaml.dump(list_of_feeds, open(feed_conf, "w"), default_flow_style=False)
