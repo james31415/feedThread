@@ -5,10 +5,15 @@ import os
 import feedparser
 import re
 import time
+import sys
 
+import requests
 import yaml
 
 feed_conf = "feeds.conf"
+USER_AGENT = 'FeedThread/1.0 (https://github.com/james31415/feedthread)'
+HEADERS = {'User-Agent': USER_AGENT}
+
 feed_url = sys.argv[1]
 if feed_url[0:4] == "feed":
     feed_url = feed_url[5:]
@@ -16,7 +21,13 @@ if feed_url[0:4] == "feed":
 def cleanTitle(dirty_title):
     return re.sub("[^\w-]", " ", dirty_title).strip()
 
-feed_title = cleanTitle(feedparser.parse(urllib.request.urlopen(feed_url)).feed.title)
+try:
+    r = requests.get(feed_url, headers = HEADERS)
+except requests.ConnectionError as e:
+    print("Feed {} failed: {}".format(name, e.response))
+    sys.exit(1)
+
+feed_title = cleanTitle(feedparser.parse(r.text).feed.title)
 
 Present = False
 list_of_feeds = yaml.load(open(feed_conf, "r"))
