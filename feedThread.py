@@ -97,8 +97,8 @@ if __name__ == '__main__':
 
         try:
             r = requests.get(url, headers = HEADERS)
-        except requests.ConnectionError as e:
-            print("Feed {} failed: {}".format(name, e.response))
+        except requests.exceptions.RequestException as e:
+            print("Feed {} failed: {}".format(name, e))
             continue
 
         if r.status_code != requests.codes.ok:
