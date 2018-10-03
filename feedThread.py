@@ -56,6 +56,9 @@ def download_url(url, dirname):
         r.close()
         return False
 
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+
     if os.path.exists(filename):
         print("{} exists".format(filename))
         r.close()
@@ -114,10 +117,11 @@ if __name__ == '__main__':
             name = hashlib.sha224(url.encode()).hexdigest()
 
         dirname = os.path.join(PODCAST_DIRECTORY, name)
-        if not os.path.exists(dirname):
-            os.mkdir(dirname)
 
-        number_existing = len(os.listdir(dirname))
+        number_existing = 0
+        if os.path.exists(dirname):
+            number_existing = len(os.listdir(dirname))
+
         number_remaining = number_to_save - number_existing
 
         if number_remaining <= 0:
