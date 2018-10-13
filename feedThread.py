@@ -50,7 +50,9 @@ def download_url(url, dirname):
         total_size = 0
 
     try:
-        filename = os.path.join(dirname, urllib.parse.unquote(re.search('.*/([^/]*\.(?:'+FORMATS+'))', url).group(1)))
+        base_name = urllib.parse.unquote_plus(re.search('.*/([^/]*\.(?:'+FORMATS+'))', url).group(1))
+        base_name = re.sub('[^\w\-\.]', '_', base_name).strip()
+        filename = os.path.join(dirname, base_name)
     except AttributeError:
         print("Couldn't find {} in {}. Is the feed valid?".format(FORMATS, url))
         r.close()
