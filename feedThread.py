@@ -132,10 +132,19 @@ if __name__ == '__main__':
         if feed.get("Date") is None:
             feed["Date"] = first_date(rssfile.entries, fetch_style)-timedelta(days=2)
 
+        if feed.get("BackDays") is None:
+            feed["BackDays"] = 7
+
         print('Getting entries for {}'.format(name))
         entries = filter(get_entrytime, rssfile.entries)
         entries = sorted(entries, key = lambda x: get_entrytime(x))
-        entries = list(filter(lambda x: get_entrytime(x) > feed["Date"], entries))
+
+        if fetch_style == FetchStyle.Latest:
+            max_date = max(feed["Date"], todaysDate - timedelta(days = feed["BackDays"]))
+            entries = list(filter(lambda x: get_entrytime(x) > max_date, entries))
+        else:
+            entries = list(filter(lambda x: get_entrytime(x) > feed["Date"], entries))
+
         entries_to_get = entries[:number_remaining]
 
         for entry in entries_to_get:
